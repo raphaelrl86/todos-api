@@ -1,18 +1,28 @@
 import { Router } from "express";
 import Todo from "../models/Todo.model.js"
 import isAuthenticatedMiddleware from "../middlewares/isAutheticatedMiddleware.js";
+import User from "../models/User.model.js"
 
 const todosRoutes = Router()
 
 todosRoutes.get('/todos', async (req, res) => {
-    const todos = await Todo.find()
-    console.log(todos)
-    res.send(todos)
+    try{
+    const todos = await Todo.find({user: req.user.id})
+    return res.status(200).json(todos)
+}   catch (error){
+        console.log(error)
+        return res.status(500).json({message: 'Internal Server Error'})
+}
 })
 
 todosRoutes.post('/todos', isAuthenticatedMiddleware, async(req, res) => {
+
+    const payload = {...req.body, user: req.user.id}
     try {
         const newTodo = await Todo.create(req.body)
+
+        await User.findOneAndUpdate({_id: req.user.id}, {$push: {todos: newTodo._id}})
+
         res.status(201).json(newTodo)
     } catch(error) {
         console.log('Erro ao criar tarefa', error)
@@ -20,7 +30,7 @@ todosRoutes.post('/todos', isAuthenticatedMiddleware, async(req, res) => {
     }
 })
 
-todosRoutes.get('/todo', async (req, res) => {
+todosRoutes.get('/todo', isAuthenticatedMiddleware, async (req, res) => {
     try {
         const todos = await Todo.find({})
         return res.status(200).json(todos)
@@ -30,7 +40,7 @@ todosRoutes.get('/todo', async (req, res) => {
     }
 })
 
-todosRoutes.get('/todos/:id', async (req, res) => {
+todosRoutes.get('/todos/:id', isAuthenticatedMiddleware, async (req, res) => {
     try {
         const { id } = req.params
         const todo = await Todo.findById(id)
@@ -46,7 +56,7 @@ todosRoutes.get('/todos/:id', async (req, res) => {
     }
 })
 
-todosRoutes.put('/todos/:id', async (req, res) => {
+todosRoutes.put('/todos/:id', isAuthenticatedMiddleware, async (req, res) => {
     try {
         const payload = req.body
         const { id } = req.params
@@ -60,7 +70,7 @@ todosRoutes.put('/todos/:id', async (req, res) => {
         return res.status(500).json({message: 'Internal Server Error'})
     }
 })
-todosRoutes.delete('/todos/:id', async (req, res) => {
+todosRoutes.delete('/todos/:id', isAuthenticatedMiddleware, async (req, res) => {
     try {
         const { id } = req.params
         await Todo.findOneAndDelete({_id: id})
